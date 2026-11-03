@@ -1,0 +1,10 @@
+alex.turner@arcticmonkeys.co.uk
+david.bowie@stardust.io
+freddie.mercury@queen.org
+mick.jagger@stones.com
+paul.mccartney@beatles.net
+george.harrison@beatles.net
+ringo.starr@beatles.net
+john.lennon@beatles.net
+robert.plant@ledzeppelin.com
+jimmy.page@ledzeppelin.com

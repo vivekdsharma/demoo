@@ -1,0 +1,21 @@
+{
+  "name": "reachinbox-scheduler-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ReachInbox Full-stack Email Job Scheduler (Take-Home Assignment)",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "db:push": "npm --prefix backend run db:push",
+    "db:generate": "npm --prefix backend run db:generate"
+  },
+  "keywords": [
+    "email-scheduler",
+    "bullmq",
+    "redis",
+    "reachinbox"
+  ]
+}
