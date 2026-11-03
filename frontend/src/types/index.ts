@@ -6,6 +6,13 @@ export type EmailStatus =
   | 'FAILED'
   | 'RATE_LIMITED';
 
+export interface EmailAttachment {
+  filename: string;
+  content: string; // base64 data url
+  contentType?: string;
+  size?: number;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -38,6 +45,7 @@ export interface EmailItem {
   jobId?: string | null;
   retryCount: number;
   batchId?: string | null;
+  attachments?: EmailAttachment[] | null;
   senderId: string;
   sender?: Sender;
   createdAt: string;
@@ -72,6 +80,7 @@ export interface ScheduleEmailPayload {
   delayBetweenEmailsSeconds: number;
   hourlyLimit: number;
   userId?: string;
+  attachments?: EmailAttachment[];
 }
 
 export interface SlackStatus {

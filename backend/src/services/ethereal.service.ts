@@ -47,6 +47,11 @@ export interface SendMailOptions {
   subject: string;
   text?: string;
   html?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    contentType?: string;
+  }>;
 }
 
 export interface SendMailResult {
@@ -56,12 +61,35 @@ export interface SendMailResult {
 
 export async function sendEmail(options: SendMailOptions): Promise<SendMailResult> {
   const mailer = await getEtherealTransporter();
+
+  // Parse any base64 data URLs in attachments
+  const mailAttachments = options.attachments?.map((att) => {
+    let rawContent = att.content;
+    let encoding: string | undefined = undefined;
+
+    if (rawContent.startsWith('data:')) {
+      const match = rawContent.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        rawContent = match[2];
+        encoding = 'base64';
+      }
+    }
+
+    return {
+      filename: att.filename,
+      content: rawContent,
+      encoding,
+      contentType: att.contentType,
+    };
+  });
+
   const info = await mailer.sendMail({
     from: options.from,
     to: options.to,
     subject: options.subject,
     text: options.text || options.html?.replace(/<[^>]*>?/gm, '') || '',
     html: options.html || options.text || '',
+    attachments: mailAttachments,
   });
 
   const previewUrl = nodemailer.getTestMessageUrl(info);

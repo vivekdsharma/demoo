@@ -15,6 +15,16 @@ const scheduleSchema = z.object({
   delayBetweenEmailsSeconds: z.number().min(0).optional(),
   hourlyLimit: z.number().min(1).optional(),
   userId: z.string().optional(),
+  attachments: z
+    .array(
+      z.object({
+        filename: z.string(),
+        content: z.string(),
+        contentType: z.string().optional(),
+        size: z.number().optional(),
+      })
+    )
+    .optional(),
 });
 
 export async function scheduleEmails(req: Request, res: Response): Promise<void> {
@@ -34,6 +44,7 @@ export async function scheduleEmails(req: Request, res: Response): Promise<void>
       delayBetweenEmailsSeconds,
       hourlyLimit,
       userId,
+      attachments,
     } = parseResult.data;
 
     const sender = await prisma.sender.findUnique({
@@ -77,6 +88,7 @@ export async function scheduleEmails(req: Request, res: Response): Promise<void>
           status: 'SCHEDULED',
           scheduledAt: scheduledTime,
           batchId,
+          attachments: attachments ? (attachments as any) : undefined,
         },
       });
 
@@ -104,6 +116,7 @@ export async function scheduleEmails(req: Request, res: Response): Promise<void>
           body,
           scheduledAt: scheduledTime.toISOString(),
           batchId,
+          attachments,
         },
         delayMs
       );

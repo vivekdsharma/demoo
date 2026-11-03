@@ -59,6 +59,7 @@ model Email {
   jobId              String?     @unique
   retryCount         Int         @default(0)
   batchId            String?
+  attachments        Json?
 
   senderId           String
   sender             Sender      @relation(fields: [senderId], references: [id], onDelete: Cascade)

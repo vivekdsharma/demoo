@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sender, ScheduleEmailPayload } from '../types';
+import { Sender, ScheduleEmailPayload, EmailAttachment } from '../types';
 import { uploadLeadsFileApi, scheduleEmailsApi } from '../api/client';
 import {
   ArrowLeft,
@@ -17,7 +17,8 @@ import {
   Quote,
   Link2,
   X,
-  CheckCircle2,
+  Plus,
+  Image as ImageIcon,
   AlertCircle,
 } from 'lucide-react';
 
@@ -41,12 +42,14 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
   const [hourlyLimit, setHourlyLimit] = useState<number>(50);
   const [startTime, setStartTime] = useState<string>('');
   const [showSchedulePicker, setShowSchedulePicker] = useState<boolean>(false);
+  const [attachments, setAttachments] = useState<EmailAttachment[]>([]);
 
   const [uploading, setUploading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (senders.length > 0 && !selectedSenderId) {
@@ -55,9 +58,10 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
       setDelaySeconds(senders[0].delaySeconds);
     }
 
-    const nextMinute = new Date(Date.now() + 60000);
-    const tzOffset = nextMinute.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(nextMinute.getTime() - tzOffset)
+    // Default start time: immediate (now + 5 seconds) so demo is fast
+    const now = new Date(Date.now() + 5000);
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(now.getTime() - tzOffset)
       .toISOString()
       .slice(0, 16);
     setStartTime(localISOTime);
@@ -85,11 +89,43 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
       const combined = Array.from(new Set([...recipients, ...res.emails]));
       setRecipients(combined);
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.error || 'Failed parsing file');
+      setErrorMessage(err.response?.data?.error || 'Failed parsing leads file');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleImageAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const content = uploadEvent.target?.result as string;
+        if (content) {
+          setAttachments((prev) => [
+            ...prev,
+            {
+              filename: file.name,
+              content,
+              contentType: file.type || 'image/png',
+              size: file.size,
+            },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+
+    if (imageAttachmentInputRef.current) {
+      imageAttachmentInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleAddManualRecipient = () => {
@@ -98,7 +134,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
     const found = manualEmailInput.match(emailRegex) || [];
 
     if (found.length === 0) {
-      setErrorMessage('Please enter a valid email');
+      setErrorMessage('Please enter a valid email address');
       return;
     }
 
@@ -118,7 +154,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
     setErrorMessage(null);
 
     if (recipients.length === 0) {
-      setErrorMessage('Please add or upload recipient emails.');
+      setErrorMessage('Please add at least one recipient email address.');
       return;
     }
 
@@ -142,6 +178,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
         startTime: new Date(startTime).toISOString(),
         delayBetweenEmailsSeconds: delaySeconds,
         hourlyLimit,
+        attachments: attachments.length > 0 ? attachments : undefined,
       };
 
       await scheduleEmailsApi(payload);
@@ -160,7 +197,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
   return (
     <div className="flex-1 flex flex-col bg-white overflow-y-auto">
       {/* Top Header */}
-      <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-20">
         <div className="flex items-center space-x-2.5">
           <button
             onClick={onBack}
@@ -175,20 +212,37 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center space-x-4">
-          {/* Attachment icon with badge 1 */}
-          <div className="relative text-slate-400 hover:text-slate-600 cursor-pointer">
-            <Paperclip className="w-4 h-4 text-emerald-600" />
-            <span className="absolute -top-1 -right-1.5 w-3 h-3 bg-emerald-500 text-white rounded-full text-[8px] flex items-center justify-center font-bold">
-              1
-            </span>
-          </div>
+          {/* Hidden image/file attachment picker */}
+          <input
+            ref={imageAttachmentInputRef}
+            type="file"
+            accept="image/*,.pdf,.doc,.docx"
+            multiple
+            onChange={handleImageAttachmentUpload}
+            className="hidden"
+            id="image-file-attachment"
+          />
+
+          {/* Paperclip icon triggering user file upload */}
+          <label
+            htmlFor="image-file-attachment"
+            className="relative text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+            title="Attach Photo or Document"
+          >
+            <Paperclip className={`w-4 h-4 ${attachments.length > 0 ? 'text-[#00a859]' : 'text-slate-400'}`} />
+            {attachments.length > 0 && (
+              <span className="absolute -top-1 -right-1.5 w-3.5 h-3.5 bg-[#00a859] text-white rounded-full text-[9px] flex items-center justify-center font-bold">
+                {attachments.length}
+              </span>
+            )}
+          </label>
 
           {/* Clock icon to toggle start time */}
           <button
             onClick={() => setShowSchedulePicker(!showSchedulePicker)}
             className={`p-1 rounded-md transition ${
               showSchedulePicker
-                ? 'bg-emerald-50 text-emerald-600'
+                ? 'bg-[#eaf5ee] text-[#00a859]'
                 : 'text-slate-400 hover:text-slate-600'
             }`}
             title="Set Scheduled Start Time"
@@ -200,7 +254,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
           <button
             onClick={handleScheduleSubmit}
             disabled={submitting}
-            className="px-4 py-1.5 rounded-full border border-[#00a859] text-[#00a859] hover:bg-[#eaf5ee] text-xs font-medium transition flex items-center space-x-1.5 shadow-sm"
+            className="px-5 py-2 rounded-full border border-[#00a859] text-[#00a859] hover:bg-[#eaf5ee] text-xs font-semibold transition flex items-center space-x-1.5 shadow-sm active:scale-98 disabled:opacity-50"
           >
             {submitting ? (
               <span>Scheduling...</span>
@@ -221,10 +275,10 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
 
       {/* Start Time schedule popup banner if toggled */}
       {showSchedulePicker && (
-        <div className="mx-8 mt-4 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-xs text-slate-700">
+        <div className="mx-8 mt-4 p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center space-x-2.5 text-xs text-slate-700">
             <Clock className="w-4 h-4 text-[#00a859]" />
-            <span className="font-medium">Scheduled Start Time:</span>
+            <span className="font-semibold text-slate-900">Schedule Start Time:</span>
             <input
               type="datetime-local"
               value={startTime}
@@ -234,9 +288,9 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
           </div>
           <button
             onClick={() => setShowSchedulePicker(false)}
-            className="text-xs text-slate-400 hover:text-slate-600"
+            className="text-xs text-[#00a859] font-medium hover:underline"
           >
-            Done
+            Save Time
           </button>
         </div>
       )}
@@ -245,12 +299,12 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
       <div className="p-8 space-y-4 max-w-4xl">
         {/* From Row */}
         <div className="flex items-center space-x-4 text-xs">
-          <span className="w-16 text-slate-400">From</span>
+          <span className="w-16 text-slate-400 font-medium">From</span>
           <div className="relative">
             <select
               value={selectedSenderId}
               onChange={handleSenderChange}
-              className="appearance-none bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-1.5 pr-8 text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-[#00a859] cursor-pointer"
+              className="appearance-none bg-slate-50 border border-slate-200/80 rounded-lg px-3.5 py-1.5 pr-8 text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-[#00a859] cursor-pointer"
             >
               {senders.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -264,12 +318,12 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
         {/* To Row (Chips + Upload List) */}
         <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
           <div className="flex items-center space-x-4 flex-1 min-w-0">
-            <span className="w-16 text-slate-400 flex-shrink-0">To</span>
+            <span className="w-16 text-slate-400 font-medium flex-shrink-0">To</span>
 
             {recipients.length === 0 ? (
               <input
                 type="text"
-                placeholder="recipients@example.com"
+                placeholder="recipients@example.com (Type and press Enter, or Upload List)"
                 value={manualEmailInput}
                 onChange={(e) => setManualEmailInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -285,13 +339,13 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
                 {visibleChips.map((email) => (
                   <span
                     key={email}
-                    className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-[#eaf5ee] text-[#00a859] text-xs font-medium border border-[#cbe8d4]"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#eaf5ee] text-[#00a859] text-xs font-medium border border-[#cbe8d4]"
                   >
                     <span>{email}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveRecipient(email)}
-                      className="hover:text-rose-500 transition ml-0.5"
+                      className="hover:text-rose-600 transition ml-0.5 font-bold"
                     >
                       ×
                     </button>
@@ -343,7 +397,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
 
         {/* Subject Row */}
         <div className="flex items-center space-x-4 border-t border-slate-100 pt-3 text-xs">
-          <span className="w-16 text-slate-400 flex-shrink-0">Subject</span>
+          <span className="w-16 text-slate-400 font-medium flex-shrink-0">Subject</span>
           <input
             type="text"
             placeholder="Subject"
@@ -362,7 +416,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
               min="0"
               value={delaySeconds}
               onChange={(e) => setDelaySeconds(parseInt(e.target.value) || 0)}
-              className="w-12 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-[#00a859]"
+              className="w-14 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-[#00a859]"
             />
             <span className="text-[11px] text-slate-400">sec</span>
           </div>
@@ -374,7 +428,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
               min="1"
               value={hourlyLimit}
               onChange={(e) => setHourlyLimit(parseInt(e.target.value) || 1)}
-              className="w-12 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-[#00a859]"
+              className="w-14 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-center text-xs text-slate-800 font-mono focus:outline-none focus:ring-1 focus:ring-[#00a859]"
             />
             <span className="text-[11px] text-slate-400">/hr</span>
           </div>
@@ -382,7 +436,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
 
         {/* Rich Text Editor Box */}
         <div className="border border-slate-100 rounded-2xl bg-white shadow-sm mt-4 overflow-hidden">
-          {/* Formatting Toolbar (matching Image 5) */}
+          {/* Formatting Toolbar */}
           <div className="px-4 py-2.5 border-b border-slate-100 bg-[#fafafa] flex items-center space-x-3 text-slate-400 text-xs">
             <button type="button" className="hover:text-slate-700 transition" title="Undo">
               <Undo className="w-3.5 h-3.5" />
@@ -423,22 +477,65 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
 
           {/* Text Area */}
           <textarea
-            rows={8}
+            rows={7}
             placeholder="Type Your Reply..."
             value={body}
             onChange={(e) => setBody(e.target.value)}
             className="w-full p-4 border-0 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0 resize-none leading-relaxed font-sans"
           />
 
-          {/* Thumbnail Preview Card (matching screenshot) */}
-          <div className="px-4 pb-4">
-            <div className="w-24 h-16 rounded-lg overflow-hidden border border-slate-100 shadow-sm relative group">
-              <img
-                src="https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?w=200"
-                alt="Attachment preview"
-                className="w-full h-full object-cover"
-              />
-            </div>
+          {/* User-Uploaded Attachments Preview Area (Dynamic, NOT Hardcoded!) */}
+          <div className="px-4 pb-4 border-t border-slate-50 pt-3">
+            {attachments.length > 0 ? (
+              <div className="flex flex-wrap gap-3 items-center">
+                {attachments.map((att, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group w-28 h-20 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-50"
+                  >
+                    {att.contentType?.startsWith('image/') || att.content.startsWith('data:image/') ? (
+                      <img
+                        src={att.content}
+                        alt={att.filename}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-slate-500">
+                        <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
+                        <span className="text-[10px] truncate w-full text-center">{att.filename}</span>
+                      </div>
+                    )}
+
+                    {/* Remove attachment button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttachment(idx)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-rose-600 text-white flex items-center justify-center text-xs transition"
+                      title="Remove attachment"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add more button */}
+                <label
+                  htmlFor="image-file-attachment"
+                  className="w-20 h-20 rounded-xl border border-dashed border-slate-300 hover:border-[#00a859] flex flex-col items-center justify-center text-slate-400 hover:text-[#00a859] cursor-pointer transition text-[10px]"
+                >
+                  <Plus className="w-4 h-4 mb-0.5" />
+                  <span>Add Photo</span>
+                </label>
+              </div>
+            ) : (
+              <label
+                htmlFor="image-file-attachment"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-dashed border-slate-200 hover:border-[#00a859] text-slate-400 hover:text-[#00a859] text-xs cursor-pointer transition"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>+ Attach Photo / Image</span>
+              </label>
+            )}
           </div>
         </div>
       </div>

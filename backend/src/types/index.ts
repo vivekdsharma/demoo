@@ -6,6 +6,13 @@ export type EmailStatus =
   | 'FAILED'
   | 'RATE_LIMITED';
 
+export interface EmailAttachment {
+  filename: string;
+  content: string; // Base64 data URL
+  contentType?: string;
+  size?: number;
+}
+
 export interface EmailJobData {
   emailId: string;
   senderId: string;
@@ -17,6 +24,7 @@ export interface EmailJobData {
   scheduledAt: string;
   retryCount?: number;
   batchId?: string;
+  attachments?: EmailAttachment[];
 }
 
 export interface ScheduleEmailPayload {
@@ -28,6 +36,7 @@ export interface ScheduleEmailPayload {
   delayBetweenEmailsSeconds?: number;
   hourlyLimit?: number;
   userId?: string;
+  attachments?: EmailAttachment[];
 }
 
 export interface EmailSearchQuery {

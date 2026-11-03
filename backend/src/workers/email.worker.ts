@@ -88,6 +88,7 @@ export function createEmailWorker(): Worker<EmailJobData> {
           to: recipient,
           subject,
           html: body,
+          attachments: (emailRecord?.attachments as any) || job.data.attachments,
         });
 
         const sentTime = new Date();
