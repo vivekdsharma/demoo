@@ -3,7 +3,7 @@ services:
     name: reachinbox-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install && npx prisma generate && npm run build
+    buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npm start
     plan: free
     envVars:

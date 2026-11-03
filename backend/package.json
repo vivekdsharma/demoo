@@ -28,6 +28,11 @@
     "@elastic/elasticsearch": "^9.5.1",
     "@prisma/client": "6.4.1",
     "@slack/web-api": "^8.3.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.13.0",
+    "@types/nodemailer": "^6.4.17",
     "bullmq": "^6.5.4",
     "cors": "^2.8.6",
     "csv-parser": "^3.2.1",
@@ -36,16 +41,11 @@
     "ioredis": "^6.0.0",
     "multer": "^2.5.0",
     "nodemailer": "^10.3.1",
+    "prisma": "6.4.1",
+    "typescript": "^5.7.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/multer": "^2.0.0",
-    "@types/node": "^22.13.0",
-    "@types/nodemailer": "^6.4.17",
-    "prisma": "6.4.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "tsx": "^4.19.2"
   }
 }
