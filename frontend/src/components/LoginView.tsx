@@ -10,6 +10,8 @@ declare global {
 export const LoginView: React.FC = () => {
   const { loginWithGoogleCredential, loginDemo, loading } = useAuth();
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -35,10 +37,10 @@ export const LoginView: React.FC = () => {
     }
   }, [googleClientId]);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     const userEmail = email.trim() || 'oliver.brown@domain.io';
-    const userName = email.trim() ? email.split('@')[0] : 'Oliver Brown';
+    const userName = name.trim() || (email.trim() ? email.split('@')[0] : 'Oliver Brown');
     await loginDemo(userEmail, userName);
   };
 
@@ -51,7 +53,7 @@ export const LoginView: React.FC = () => {
       <div className="w-full max-w-[420px] bg-white border border-slate-100 rounded-2xl p-8 sm:p-10 shadow-[0_4px_25px_rgba(0,0,0,0.04)]">
         {/* Title */}
         <h1 className="text-2xl font-bold text-slate-900 text-center mb-7">
-          Login
+          {isSignUp ? 'Create an Account' : 'Login'}
         </h1>
 
         {/* Google Login Button */}
@@ -83,7 +85,7 @@ export const LoginView: React.FC = () => {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              <span>Login with Google</span>
+              <span>{isSignUp ? 'Sign up with Google' : 'Login with Google'}</span>
             </button>
           )}
         </div>
@@ -92,13 +94,25 @@ export const LoginView: React.FC = () => {
         <div className="flex items-center my-6">
           <div className="flex-1 border-t border-slate-100" />
           <span className="px-3 text-[11px] text-slate-400 font-normal">
-            or sign up through email
+            {isSignUp ? 'or register with email' : 'or continue with email'}
           </span>
           <div className="flex-1 border-t border-slate-100" />
         </div>
 
         {/* Email Form */}
-        <form onSubmit={handleEmailLogin} className="space-y-3.5">
+        <form onSubmit={handleEmailAuth} className="space-y-3.5">
+          {isSignUp && (
+            <div>
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-[#f4f5f7] border-0 rounded-xl px-4 py-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00a859]"
+              />
+            </div>
+          )}
+
           <div>
             <input
               type="text"
@@ -125,10 +139,43 @@ export const LoginView: React.FC = () => {
               disabled={loading}
               className="w-full py-3 px-4 rounded-xl bg-[#00a859] hover:bg-[#00924c] text-white font-medium text-xs shadow-sm transition active:scale-98"
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading
+                ? isSignUp
+                  ? 'Creating Account...'
+                  : 'Logging in...'
+                : isSignUp
+                ? 'Create Account'
+                : 'Login'}
             </button>
           </div>
         </form>
+
+        {/* Switch between Login and Sign Up */}
+        <div className="mt-6 text-center text-xs text-slate-500">
+          {isSignUp ? (
+            <span>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => setIsSignUp(false)}
+                className="text-[#00a859] font-semibold hover:underline"
+              >
+                Login
+              </button>
+            </span>
+          ) : (
+            <span>
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => setIsSignUp(true)}
+                className="text-[#00a859] font-semibold hover:underline"
+              >
+                Sign Up
+              </button>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
