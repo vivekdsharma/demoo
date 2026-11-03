@@ -35,16 +35,15 @@ export const LoginView: React.FC = () => {
     }
   }, [googleClientId]);
 
-  const handleEmailLogin = (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const userEmail = email.trim() || 'oliver.brown@domain.io';
     const userName = email.trim() ? email.split('@')[0] : 'Oliver Brown';
-    loginDemo(userEmail, userName);
+    await loginDemo(userEmail, userName);
   };
 
-  const handleGoogleClick = () => {
-    // If real Google client is not configured in env, logs in as Oliver Brown (matching Figma)
-    loginDemo('oliver.brown@domain.io', 'Oliver Brown');
+  const handleGoogleClick = async () => {
+    await loginDemo('oliver.brown@domain.io', 'Oliver Brown');
   };
 
   return (
@@ -64,9 +63,9 @@ export const LoginView: React.FC = () => {
               onClick={handleGoogleClick}
               disabled={loading}
               type="button"
-              className="w-full flex items-center justify-center space-x-2.5 py-3 px-4 rounded-xl bg-[#eaf5ee] hover:bg-[#dcf0e2] text-slate-800 text-xs font-medium border border-[#cbe8d4] transition"
+              className="w-full flex items-center justify-center space-x-2.5 py-3 px-4 rounded-xl bg-[#eaf5ee] hover:bg-[#dcf0e2] text-slate-800 text-xs font-medium border border-[#cbe8d4] transition active:scale-98"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -102,7 +101,7 @@ export const LoginView: React.FC = () => {
         <form onSubmit={handleEmailLogin} className="space-y-3.5">
           <div>
             <input
-              type="email"
+              type="text"
               placeholder="Email ID"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -124,7 +123,7 @@ export const LoginView: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-[#00a859] hover:bg-[#00924c] text-white font-medium text-xs shadow-sm transition"
+              className="w-full py-3 px-4 rounded-xl bg-[#00a859] hover:bg-[#00924c] text-white font-medium text-xs shadow-sm transition active:scale-98"
             >
               {loading ? 'Logging in...' : 'Login'}
             </button>
