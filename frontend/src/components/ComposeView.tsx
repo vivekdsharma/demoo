@@ -58,7 +58,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
       setDelaySeconds(senders[0].delaySeconds);
     }
 
-    // Default start time: immediate (now + 5 seconds) so demo is fast
+    // Default start time: now + 5 seconds (immediate demo)
     const now = new Date(Date.now() + 5000);
     const tzOffset = now.getTimezoneOffset() * 60000;
     const localISOTime = new Date(now.getTime() - tzOffset)
@@ -128,22 +128,25 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
     setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const handleAddManualRecipient = () => {
-    if (!manualEmailInput.trim()) return;
+  // Helper to commit whatever email is typed into recipients array
+  const commitManualEmail = (inputVal = manualEmailInput): string[] => {
+    if (!inputVal.trim()) return recipients;
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    const found = manualEmailInput.match(emailRegex) || [];
+    const found = inputVal.match(emailRegex) || [];
 
-    if (found.length === 0) {
-      setErrorMessage('Please enter a valid email address');
-      return;
+    let updated = [...recipients];
+    if (found.length > 0) {
+      updated = Array.from(new Set([...updated, ...found.map((e) => e.toLowerCase().trim())]));
+      setRecipients(updated);
+      setManualEmailInput('');
+      setErrorMessage(null);
+    } else if (inputVal.includes('@')) {
+      updated = Array.from(new Set([...updated, inputVal.toLowerCase().trim()]));
+      setRecipients(updated);
+      setManualEmailInput('');
+      setErrorMessage(null);
     }
-
-    const combined = Array.from(
-      new Set([...recipients, ...found.map((e) => e.toLowerCase())])
-    );
-    setRecipients(combined);
-    setManualEmailInput('');
-    setErrorMessage(null);
+    return updated;
   };
 
   const handleRemoveRecipient = (email: string) => {
@@ -153,8 +156,11 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
   const handleScheduleSubmit = async () => {
     setErrorMessage(null);
 
-    if (recipients.length === 0) {
-      setErrorMessage('Please add at least one recipient email address.');
+    // Automatically commit any pending input
+    const finalRecipients = commitManualEmail();
+
+    if (finalRecipients.length === 0) {
+      setErrorMessage('Please enter at least one valid recipient email address.');
       return;
     }
 
@@ -172,7 +178,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
     try {
       const payload: ScheduleEmailPayload = {
         senderId: selectedSenderId,
-        recipients,
+        recipients: finalRecipients,
         subject: subject.trim(),
         body: body.trim(),
         startTime: new Date(startTime).toISOString(),
@@ -212,7 +218,7 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center space-x-4">
-          {/* Hidden image/file attachment picker */}
+          {/* Hidden image attachment picker */}
           <input
             ref={imageAttachmentInputRef}
             type="file"
@@ -315,64 +321,56 @@ export const ComposeView: React.FC<ComposeViewProps> = ({
           </div>
         </div>
 
-        {/* To Row (Chips + Upload List) */}
+        {/* To Row (Chips + Input + Upload List) */}
         <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
           <div className="flex items-center space-x-4 flex-1 min-w-0">
             <span className="w-16 text-slate-400 font-medium flex-shrink-0">To</span>
 
-            {recipients.length === 0 ? (
+            <div className="flex items-center flex-wrap gap-1.5 flex-1 min-w-0">
+              {visibleChips.map((email) => (
+                <span
+                  key={email}
+                  className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#eaf5ee] text-[#00a859] text-xs font-medium border border-[#cbe8d4]"
+                >
+                  <span>{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveRecipient(email)}
+                    className="hover:text-rose-600 transition ml-0.5 font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+
+              {extraCount > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#eaf5ee] text-[#00a859] text-xs font-semibold">
+                  +{extraCount}
+                </span>
+              )}
+
               <input
                 type="text"
-                placeholder="recipients@example.com (Type and press Enter, or Upload List)"
+                placeholder={recipients.length === 0 ? "recipients@example.com (Type email, or Upload List)" : "add more..."}
                 value={manualEmailInput}
-                onChange={(e) => setManualEmailInput(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val.includes(',') || val.includes(';') || val.endsWith(' ')) {
+                    commitManualEmail(val);
+                  } else {
+                    setManualEmailInput(val);
+                  }
+                }}
+                onBlur={() => commitManualEmail()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    handleAddManualRecipient();
+                    commitManualEmail();
                   }
                 }}
-                className="w-full border-0 p-0 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-0"
+                className="border-0 p-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none flex-1 min-w-[200px]"
               />
-            ) : (
-              <div className="flex items-center flex-wrap gap-1.5 flex-1 min-w-0">
-                {visibleChips.map((email) => (
-                  <span
-                    key={email}
-                    className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#eaf5ee] text-[#00a859] text-xs font-medium border border-[#cbe8d4]"
-                  >
-                    <span>{email}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveRecipient(email)}
-                      className="hover:text-rose-600 transition ml-0.5 font-bold"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-
-                {extraCount > 0 && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#eaf5ee] text-[#00a859] text-xs font-semibold">
-                    +{extraCount}
-                  </span>
-                )}
-
-                <input
-                  type="text"
-                  placeholder="add more..."
-                  value={manualEmailInput}
-                  onChange={(e) => setManualEmailInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddManualRecipient();
-                    }
-                  }}
-                  className="border-0 p-1 text-xs text-slate-700 placeholder-slate-400 focus:outline-none w-28"
-                />
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Upload List CTA */}
