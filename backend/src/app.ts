@@ -9,7 +9,10 @@ export function createApp(): Application {
 
   app.use(
     cors({
-      origin: [config.frontendUrl, 'http://localhost:5173', 'http://localhost:3000'],
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, or Postman) or any frontend URL
+        callback(null, true);
+      },
       credentials: true,
     })
   );
