@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
-import { Header } from './components/Header';
-import { StatsCards } from './components/StatsCards';
-import { ScheduledTable } from './components/ScheduledTable';
-import { SentTable } from './components/SentTable';
-import { ComposeModal } from './components/ComposeModal';
+import { Sidebar } from './components/Sidebar';
+import { EmailListView } from './components/EmailListView';
+import { EmailDetailView } from './components/EmailDetailView';
+import { ComposeView } from './components/ComposeView';
 import { SlackModal } from './components/SlackModal';
 import {
   EmailItem,
@@ -21,27 +20,22 @@ import {
   fetchSlackStatus,
   cancelEmailApi,
 } from './api/client';
-import { Calendar, CheckCircle2 } from 'lucide-react';
 
 export const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
 
+  const [currentView, setCurrentView] = useState<'list' | 'detail' | 'compose'>('list');
   const [activeTab, setActiveTab] = useState<'scheduled' | 'sent'>('scheduled');
+  const [selectedEmail, setSelectedEmail] = useState<EmailItem | null>(null);
+
   const [scheduledEmails, setScheduledEmails] = useState<EmailItem[]>([]);
   const [sentEmails, setSentEmails] = useState<EmailItem[]>([]);
   const [senders, setSenders] = useState<Sender[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [slackStatus, setSlackStatus] = useState<SlackStatus | null>(null);
 
-  const [loadingScheduled, setLoadingScheduled] = useState<boolean>(true);
-  const [loadingSent, setLoadingSent] = useState<boolean>(true);
-
-  const [scheduledSearch, setScheduledSearch] = useState<string>('');
-  const [sentSearch, setSentSearch] = useState<string>('');
-  const [scheduledSource, setScheduledSource] = useState<string | undefined>();
-  const [sentSource, setSentSource] = useState<string | undefined>();
-
-  const [isComposeOpen, setIsComposeOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isSlackOpen, setIsSlackOpen] = useState<boolean>(false);
 
   // Load stats & slack status
@@ -61,34 +55,32 @@ export const App: React.FC = () => {
   }, []);
 
   // Load scheduled emails
-  const loadScheduled = useCallback(async (q = scheduledSearch) => {
-    setLoadingScheduled(true);
+  const loadScheduled = useCallback(async (q = searchQuery) => {
+    setLoading(true);
     try {
       const res = await fetchScheduledEmails(1, 100, q);
       setScheduledEmails(res.data);
-      setScheduledSource(res.source);
     } catch (err) {
       console.error('[App] Error loading scheduled emails:', err);
     } finally {
-      setLoadingScheduled(false);
+      setLoading(false);
     }
-  }, [scheduledSearch]);
+  }, [searchQuery]);
 
   // Load sent emails
-  const loadSent = useCallback(async (q = sentSearch) => {
-    setLoadingSent(true);
+  const loadSent = useCallback(async (q = searchQuery) => {
+    setLoading(true);
     try {
       const res = await fetchSentEmails(1, 100, q);
       setSentEmails(res.data);
-      setSentSource(res.source);
     } catch (err) {
       console.error('[App] Error loading sent emails:', err);
     } finally {
-      setLoadingSent(false);
+      setLoading(false);
     }
-  }, [sentSearch]);
+  }, [searchQuery]);
 
-  // Refresh all
+  // Refresh
   const refreshAll = useCallback(() => {
     loadStatsAndSlack();
     if (activeTab === 'scheduled') {
@@ -98,14 +90,16 @@ export const App: React.FC = () => {
     }
   }, [activeTab, loadStatsAndSlack, loadScheduled, loadSent]);
 
-  // Initial and reactive loads
   useEffect(() => {
     if (user) {
       loadStatsAndSlack();
-      loadScheduled();
-      loadSent();
+      if (activeTab === 'scheduled') {
+        loadScheduled();
+      } else {
+        loadSent();
+      }
 
-      // Poll periodically every 5 seconds to observe live queue dispatch
+      // Auto-poll every 5 seconds for live BullMQ email delivery
       const interval = setInterval(() => {
         loadStatsAndSlack();
         if (activeTab === 'scheduled') {
@@ -119,31 +113,44 @@ export const App: React.FC = () => {
     }
   }, [user, activeTab, loadStatsAndSlack, loadScheduled, loadSent]);
 
-  const handleScheduledSearch = (q: string) => {
-    setScheduledSearch(q);
-    loadScheduled(q);
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    if (activeTab === 'scheduled') {
+      loadScheduled(q);
+    } else {
+      loadSent(q);
+    }
   };
 
-  const handleSentSearch = (q: string) => {
-    setSentSearch(q);
-    loadSent(q);
+  const handleTabChange = (tab: 'scheduled' | 'sent') => {
+    setActiveTab(tab);
+    setCurrentView('list');
+    setSelectedEmail(null);
+    setSearchQuery('');
   };
 
-  const handleCancelEmail = async (id: string) => {
-    if (confirm('Are you sure you want to cancel this scheduled email?')) {
+  const handleSelectEmail = (email: EmailItem) => {
+    setSelectedEmail(email);
+    setCurrentView('detail');
+  };
+
+  const handleDeleteEmail = async (id: string) => {
+    if (confirm('Are you sure you want to delete this email?')) {
       try {
         await cancelEmailApi(id);
+        setCurrentView('list');
+        setSelectedEmail(null);
         refreshAll();
-      } catch (err) {
-        alert('Failed to cancel email');
+      } catch {
+        alert('Failed to delete email');
       }
     }
   };
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#00a859] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -153,90 +160,52 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Header */}
-      <Header
-        slackStatus={slackStatus}
-        onOpenSlackModal={() => setIsSlackOpen(true)}
-        onOpenCompose={() => setIsComposeOpen(true)}
-      />
-
-      {/* Main Dashboard Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Metric Summary Cards */}
-        <StatsCards stats={stats} />
-
-        {/* Navigation Tabs */}
-        <div className="flex items-center space-x-2 border-b border-slate-800 mb-6">
-          <button
-            onClick={() => setActiveTab('scheduled')}
-            className={`flex items-center space-x-2 pb-3 px-3 text-xs font-semibold border-b-2 transition relative ${
-              activeTab === 'scheduled'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Scheduled Emails</span>
-            {stats && (
-              <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">
-                {stats.database.scheduled}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sent')}
-            className={`flex items-center space-x-2 pb-3 px-3 text-xs font-semibold border-b-2 transition relative ${
-              activeTab === 'sent'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>Sent Emails</span>
-            {stats && (
-              <span className="ml-1.5 px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                {stats.database.sent}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Tab Views */}
-        {activeTab === 'scheduled' ? (
-          <ScheduledTable
-            emails={scheduledEmails}
-            loading={loadingScheduled}
-            searchQuery={scheduledSearch}
-            onSearchChange={handleScheduledSearch}
-            onCancelEmail={handleCancelEmail}
-            onRefresh={refreshAll}
-            searchSource={scheduledSource}
-          />
-        ) : (
-          <SentTable
-            emails={sentEmails}
-            loading={loadingSent}
-            searchQuery={sentSearch}
-            onSearchChange={handleSentSearch}
-            onRefresh={refreshAll}
-            searchSource={sentSource}
-          />
-        )}
-      </main>
-
-      {/* Modals */}
-      <ComposeModal
-        isOpen={isComposeOpen}
-        onClose={() => setIsComposeOpen(false)}
-        senders={senders}
-        onScheduledSuccess={() => {
-          refreshAll();
-          setActiveTab('scheduled');
+    <div className="min-h-screen bg-white text-slate-800 flex overflow-hidden font-sans">
+      {/* Fixed Left Sidebar (Image 2/3) */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onComposeClick={() => {
+          setCurrentView('compose');
+          setSelectedEmail(null);
         }}
+        scheduledCount={stats?.database.scheduled || scheduledEmails.length}
+        sentCount={stats?.database.sent || sentEmails.length}
+        slackStatus={slackStatus}
+        onOpenSlack={() => setIsSlackOpen(true)}
+        senders={senders}
       />
 
+      {/* Main Content Area */}
+      {currentView === 'compose' ? (
+        <ComposeView
+          onBack={() => setCurrentView('list')}
+          senders={senders}
+          onScheduledSuccess={() => {
+            refreshAll();
+            setActiveTab('scheduled');
+            setCurrentView('list');
+          }}
+        />
+      ) : currentView === 'detail' && selectedEmail ? (
+        <EmailDetailView
+          email={selectedEmail}
+          onBack={() => setCurrentView('list')}
+          onDelete={handleDeleteEmail}
+        />
+      ) : (
+        <EmailListView
+          type={activeTab}
+          emails={activeTab === 'scheduled' ? scheduledEmails : sentEmails}
+          loading={loading}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          onRefresh={refreshAll}
+          onSelectEmail={handleSelectEmail}
+        />
+      )}
+
+      {/* Slack Integration Modal */}
       <SlackModal
         isOpen={isSlackOpen}
         onClose={() => setIsSlackOpen(false)}
